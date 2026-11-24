@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+*.db
+*.sqlite
+*.sqlite3
+tools/
+artifacts/
+.idea/
+.vscode/
+.DS_Store
+*.log
+
+# the delivery evidence under docs/checks MUST stay in the repository
+!docs/checks/
+!docs/checks/*.log

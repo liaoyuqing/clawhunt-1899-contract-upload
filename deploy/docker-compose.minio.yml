@@ -1,0 +1,63 @@
+# MinIO for the contract document service (order 1899).
+#
+# IMPORTANT - DELIVERY NOTE:
+#   The machine that produced this delivery has NO docker and NO MinIO
+#   server, so THIS FILE WAS NEVER RUN THERE.  It is delivered as the
+#   reproducible object-storage environment for a host that does have
+#   docker.  The automated tests in this repository therefore run against a
+#   moto S3 server (a REAL HTTP server, see tests/conftest.py) instead of
+#   this compose file.  The adapter, the bucket initialisation and the
+#   private policy are identical in both cases.
+#
+# Start it on a host with docker:
+#   docker compose -f deploy/docker-compose.minio.yml up -d
+#   docker compose -f deploy/docker-compose.minio.yml logs -f minio-init
+#
+# The service then talks to it through the environment variables:
+#   CONTRACT_OBJECT_STORAGE_ENDPOINT=http://127.0.0.1:9000
+#   CONTRACT_OBJECT_STORAGE_BUCKET=contract-bucket
+#   CONTRACT_OBJECT_STORAGE_SECRET_KEY=minioadmin
+#   CONTRACT_OBJECT_STORAGE_ACCESS_KEY_ID=minioadmin
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # Idempotent initialisation: create the bucket and make it PRIVATE.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      mc mb --ignore-existing local/$${CONTRACT_BUCKET};
+      mc anonymous set none local/$${CONTRACT_BUCKET};
+      mc anonymous set none local/$${CONTRACT_BUCKET};
+      mc stat local/$${CONTRACT_BUCKET};
+      echo 'bucket $$CONTRACT_BUCKET created and set to private (anonymous=none)';
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      CONTRACT_BUCKET: ${CONTRACT_BUCKET:-contract-bucket}
+    restart: "no"
+
+volumes:
+  minio-data:
