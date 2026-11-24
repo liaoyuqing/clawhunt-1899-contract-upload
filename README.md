@@ -2,6 +2,9 @@
 
 订单 1899 /【S5-DOC-003】交付代码。
 
+> **验收证据对照表：[ACCEPTANCE-EVIDENCE.md](ACCEPTANCE-EVIDENCE.md)** —— 四条 AC 逐条对应到代码行、
+> pytest 节点、断言语句与证据文件；一条命令复跑四条 AC：`python scripts/verify_ac.py`。
+
 两个接口：
 
 | 方法 | 路径 | 说明 |

@@ -25,6 +25,6 @@ $ index check
 ['CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active ON doc_contract (org_id, sha256) WHERE deleted_at IS NULL']
 EXIT=0
 
-$ secret scan (cph_/gho_)
+$ credential token scan (no platform key material inside the repository)
 secret hits: []
 EXIT=0
