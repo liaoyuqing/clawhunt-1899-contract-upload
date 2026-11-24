@@ -1,0 +1,30 @@
+$ python -m pytest -q
+............................................                             [100%]
+============================== warnings summary ===============================
+D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
+  D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+44 passed, 1 warning in 34.02s
+EXIT=0
+
+$ python scripts/check_openapi.py
+openapi checks passed
+  upload  /api/doc/contracts: requestBody multipart/form-data with file, contract_type_hint, member_company_id
+  upload  responses: 201, 403, 409, 413, 415
+  download /api/doc/contracts/{contract_id}/file: responses 200, 403, 404
+  document written to C:\Users\Public\_v1899_lead\docs\openapi.json
+EXIT=0
+
+$ alembic upgrade head  (CONTRACT_DATABASE_URL=sqlite:///./_verify.db)
+
+EXIT=0
+
+$ index check
+['CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active ON doc_contract (org_id, sha256) WHERE deleted_at IS NULL']
+EXIT=0
+
+$ secret scan (cph_/gho_)
+secret hits: []
+EXIT=0

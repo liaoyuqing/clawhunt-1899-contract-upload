@@ -220,7 +220,7 @@ key 匹配 `contracts/{org}/{yyyy}/{mm}/{uuid4}.{ext}`、`head_object` 的 `Cont
 python -m pytest -q tests/test_ac2_limits.py
 ```
 
-应看到：`10 passed`。含 21 MB→413、.exe→415、.exe 改名 .pdf→415、PDF 配 .png→415、
+应看到：`8 passed`。含 21 MB→413、.exe→415、.exe 改名 .pdf→415、PDF 配 .png→415、
 恰好 20 MB→201、20 MB+1 B→413、`Content-Length` 撒谎→413、413 后桶内 0 对象 0 pending multipart。
 
 证据文件：`docs/checks/pytest.log`
@@ -255,7 +255,7 @@ python -m pytest -q tests/test_concurrency.py tests/test_permissions.py \
                   tests/test_dispatch.py tests/test_filename_handling.py
 ```
 
-应看到：`22 passed`。其中 10 并发同文件 ⇒ **1 条 201 + 9 条 409**，库中记录数 1，桶内对象数 1。
+应看到：`23 passed`。其中 10 并发同文件 ⇒ **1 条 201 + 9 条 409**，库中记录数 1，桶内对象数 1。
 
 ---
 
