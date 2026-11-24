@@ -1,4 +1,4 @@
-﻿============================= test session starts =============================
+============================= test session starts =============================
 collecting ... collected 5 items
 
 tests/test_ac1_formats.py::test_ac1_each_allowed_format_returns_201[pdf] PASSED [ 20%]
