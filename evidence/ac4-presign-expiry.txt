@@ -1,0 +1,29 @@
+# AC4 on real MinIO - 4:59 -> 200, 5:01 -> 403 (MinIO verdict)
+# generated 2026-11-25T05:11:22.320764+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+$ python -m pytest -v -s tests/realenv/test_ac4_minio.py
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\Administrator\.venvs\hf-bgm\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\AI接单\Clawhunt\delivery\1899
+configfile: pyproject.toml
+plugins: anyio-4.15.1, hydra-core-1.3.2, typeguard-4.5.2
+collecting ... collected 3 items
+
+tests/realenv/test_ac4_minio.py::test_ac4_url_still_valid_at_4m59s_on_real_minio age 299s = 4:59 -> HTTP 200, 65 bytes, expires_at=2026-11-25T05:11:19+00:00
+PASSED
+tests/realenv/test_ac4_minio.py::test_ac4_url_expired_at_5m01s_on_real_minio age 301s = 5:01 -> HTTP 403, code=AccessDenied, expires_at=2026-11-25T05:11:18+00:00
+PASSED
+tests/realenv/test_ac4_minio.py::test_ac4_expiry_is_a_server_side_verdict_not_our_check PASSED
+
+============================== warnings summary ===============================
+D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
+  D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 3 passed, 1 warning in 4.39s =========================
+
+exit code: 0

@@ -1,13 +1,13 @@
 # MinIO for the contract document service (order 1899).
 #
-# IMPORTANT - DELIVERY NOTE:
-#   The machine that produced this delivery has NO docker and NO MinIO
-#   server, so THIS FILE WAS NEVER RUN THERE.  It is delivered as the
-#   reproducible object-storage environment for a host that does have
-#   docker.  The automated tests in this repository therefore run against a
-#   moto S3 server (a REAL HTTP server, see tests/conftest.py) instead of
-#   this compose file.  The adapter, the bucket initialisation and the
-#   private policy are identical in both cases.
+# DELIVERY NOTE:
+#   The delivery machine has NO docker, so this compose file itself was not
+#   used there.  MinIO WAS nevertheless run for real: the official server
+#   binary (RELEASE.2025-07-23T15-54-02Z) on http://127.0.0.1:9000, driven by
+#   the very same adapter code, with transcripts in evidence/*.txt.  This file
+#   stays as the containerised equivalent for a host that does have docker -
+#   it starts the same server image and runs the same idempotent init steps
+#   (create bucket + forbid anonymous access) that ensure_bucket() performs.
 #
 # Start it on a host with docker:
 #   docker compose -f deploy/docker-compose.minio.yml up -d

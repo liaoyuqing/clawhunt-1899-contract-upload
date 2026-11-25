@@ -5,8 +5,12 @@
 
 仓库：<https://github.com/liaoyuqing/clawhunt-1899-contract-upload>（public，main 分支）
 
-全量用例实测：**44 passed**（干净 clone 上 `python -m pytest -q` 退出码 0），
-逐文件分跑结果见 [§4](#4-逐文件用例数与耗时)。
+两套测试，全部实跑：
+
+- 默认套件（moto + SQLite）：**44 passed**，14 skipped（真实环境套件在无外部服务时整体跳过），退出码 0；
+- 真实环境套件（真 MinIO 服务端 + PostgreSQL 16.4）：**14 passed**，退出码 0，原始输出在 `evidence/` 下。
+
+逐文件分跑结果见 §6，真实环境复核的完整说明见 §5。
 
 ---
 
@@ -14,10 +18,10 @@
 
 | AC | 原文 | 实现位置 | 测试节点 | 关键断言 | 证据文件 |
 |---|---|---|---|---|---|
-| **AC1** | 上传 4 种允许格式均返回 201，并能在 MinIO 中看到对应对象（测试输出） | `app/doc/service.py:74-224`、`app/doc/types.py:90-124`、`app/storage/s3_adapter.py:169-176` | `tests/test_ac1_formats.py::test_ac1_each_allowed_format_returns_201[pdf\|docx\|jpg\|png]` | `assert response.status_code == 201`、`assert len(new_keys) == 1`、`assert adapter.object_exists(key)` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log` |
+| **AC1** | 上传 4 种允许格式均返回 201，并能在 MinIO 中看到对应对象（测试输出） | `app/doc/service.py:74-224`、`app/doc/types.py:90-124`、`app/storage/s3_adapter.py:169-176` | `tests/test_ac1_formats.py::test_ac1_each_allowed_format_returns_201[pdf\|docx\|jpg\|png]` | `assert response.status_code == 201`、`assert len(new_keys) == 1`、`assert adapter.object_exists(key)` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log`、**`evidence/ac1-minio-upload.txt`、`evidence/ac1-minio-head.txt`、`evidence/ac1-minio-mc-ls.txt`、`evidence/ac1-bucket-private.txt`（真 MinIO）** |
 | **AC2** | 上传 21 MB 文件返回 413，上传 .exe 返回 415（pytest 通过） | `app/doc/service.py:107-146`、`app/doc/streaming.py:117-161`、`app/doc/types.py:66-78` | `tests/test_ac2_limits.py::test_ac2_21mb_is_rejected_with_413`、`::test_ac2_exe_is_rejected_with_415` | `assert response.status_code == 413`、`assert response.status_code == 415`、`assert adapter.list_keys() == []` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log` |
-| **AC3** | 同一文件重复上传返回 409，body 中 contract_id 与首次一致 | `app/doc/service.py:160-209`、`migrations/versions/0001_init.py:44-51` | `tests/test_ac3_duplicates.py::test_ac3_duplicate_upload_returns_409_with_the_same_contract_id` | `assert second.status_code == 409`、`assert body["contract_id"] == first_id`、`assert count == 1` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log` |
-| **AC4** | 预签名地址超过 5 分钟后失效（冻结时间的单元测试证明） | `app/storage/s3_adapter.py:294-315`、`app/storage/signing.py:113-191`、`app/doc/service.py:227-268` | `tests/test_ac4_presign.py::test_ac4_expires_parameter_equals_injected_moment_plus_300`、`::test_ac4_url_is_valid_at_299_seconds_and_expired_at_301_seconds` | `assert query["X-Amz-Expires"] == ["300"]`、`assert body["expires_at"] == expected.isoformat()`、`assert is_expired(url, now=expired) is True` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log` |
+| **AC3** | 同一文件重复上传返回 409，body 中 contract_id 与首次一致 | `app/doc/service.py:160-209`、`migrations/versions/0001_init.py:44-51` | `tests/test_ac3_duplicates.py::test_ac3_duplicate_upload_returns_409_with_the_same_contract_id` | `assert second.status_code == 409`、`assert body["contract_id"] == first_id`、`assert count == 1` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log`、**`evidence/ac3-pg-alembic.txt`、`evidence/ac3-pg-index.txt`、`evidence/ac3-pg-tests.txt`（真 PG 16）** |
+| **AC4** | 预签名地址超过 5 分钟后失效（冻结时间的单元测试证明） | `app/storage/s3_adapter.py:294-315`、`app/storage/signing.py:113-191`、`app/doc/service.py:227-268` | `tests/test_ac4_presign.py::test_ac4_expires_parameter_equals_injected_moment_plus_300`、`::test_ac4_url_is_valid_at_299_seconds_and_expired_at_301_seconds` | `assert query["X-Amz-Expires"] == ["300"]`、`assert body["expires_at"] == expected.isoformat()`、`assert is_expired(url, now=expired) is True` | `docs/checks/pytest.log`、`docs/checks/clone-verify.log`、**`evidence/ac4-presign-expiry.txt`（真 MinIO，4:59→200 / 5:01→403）** |
 
 ---
 
@@ -83,6 +87,10 @@ assert statements, policy                               # bucket policy 里没�
 - `docs/checks/pytest.log` —— 全量 `pytest -v` 输出，含 `test_ac1_each_allowed_format_returns_201[pdf]` 等四个节点名与 `PASSED` 标记；末尾汇总 `44 passed`。
 - `docs/checks/clone-verify.log` —— 干净 clone（`C:\Users\Public\_v1899`）上的同一批输出，含 `--- command: python -m pytest -q ---` 与 `exit code: 0`。
 - `docs/openapi.json` —— `scripts/check_openapi.py` 导出的接口描述，上传接口声明 `multipart/form-data` 与 413/415/409/403。
+- **`evidence/ac1-minio-upload.txt`** —— 真 MinIO 服务端上重跑同一批断言（6 passed），断言含 `object_exists` 与 `head_object` 字节数。
+- **`evidence/ac1-minio-head.txt`** —— 桶内四个对象的 `ContentLength` / `ContentType` / `ETag` / `LastModified`。
+- **`evidence/ac1-minio-mc-ls.txt`** —— `mc ls --recursive` 直接列出这四个对象，桶内恰好 4 个。
+- **`evidence/ac1-bucket-private.txt`** —— 真 MinIO 上 `is_public_read()=False`、ACL 无 AllUsers 授权、匿名 GET 403。
 
 ---
 
@@ -221,6 +229,9 @@ assert active == 1
 
 - `docs/checks/pytest.log` —— 含三个节点名与 `PASSED` 标记。
 - `docs/checks/clone-verify.log` —— 干净 clone 上的同一批输出。
+- **`evidence/ac3-pg-alembic.txt`** —— 真 PostgreSQL 16.4 上 `alembic current` / `upgrade head` / `current`，退出码全 0。
+- **`evidence/ac3-pg-index.txt`** —— `pg_indexes` 里那条部分唯一索引的实际定义（`CREATE UNIQUE INDEX ... WHERE (deleted_at IS NULL)`）。
+- **`evidence/ac3-pg-tests.txt`** —— 真 PG 上重复上传 409 同 id、软删后重传、**十并发 1×201 + 9×409**（5 passed）。
 
 ---
 
@@ -291,76 +302,205 @@ assert parse_qs(urlparse(injected.url).query)["X-Amz-Expires"] == ["60"]
 
 - `docs/checks/pytest.log` —— 含五个节点名与 `PASSED` 标记。
 - `docs/checks/clone-verify.log` —— 干净 clone 上的同一批输出。
+- **`evidence/ac4-presign-expiry.txt`** —— 真 MinIO 上同一批 URL：age 299s ⇒ **HTTP 200（65 字节）**、age 301s ⇒ **HTTP 403 `AccessDenied`**，
+  判决由 MinIO 自己的时钟作出（3 passed）。这一份替代了上一版「只能证明我们自己认为过期」的弱点。
 
 ---
 
-## 5. 本机运行环境边界（为什么 AC4 用冻结时间也能成立）
+## 5. 真实环境复核：真 MinIO 服务端 + PostgreSQL 16（本版新增）
 
-这一节说明本单**实际**的验证环境，以及它为什么仍然能证明 AC4。
+上一版的四段证据全部跑在 moto + SQLite 上，买方因此驳回。本版补了这一节：**同样的代码，跑在真的 MinIO 服务端和真的
+PostgreSQL 16 上**，原始输出逐份落盘在 `evidence/` 下，不再有任何「本机没有 MinIO / 没有 PostgreSQL」的说法。
 
-### 5.1 事实
+### 5.1 交付机器上实际在跑的服务
 
-| 项 | 实际情况 |
-|---|---|
-| docker | **没有**。本机无法启动任何容器。 |
-| 真 MinIO 服务端 | **没有**。因此 `deploy/docker-compose.minio.yml` **作为交付物提供，本机从未运行过**（文件头已注明）。 |
-| 测试用的对象存储 | **moto 的 `ThreadedMotoServer`**（`tests/conftest.py:38-45`）：一个真正的 HTTP 服务器，boto3 通过**真实 HTTP 协议栈**访问它——SigV4 签名、multipart 上传、预签名 URL 全部走网络请求，不是进程内拦截。 |
-| moto 的过期校验 | moto **不校验预签名过期**。实测：`ExpiresIn=1` 生成的 URL，放 2.5 秒后 GET 仍返回 200；把签名时间冻结到 2024 年也仍返回 200。 |
-| freezegun 的作用 | 冻结**应用侧**时钟（`app/doc/service.py` 的 `now`、`app/storage/s3_adapter.py` 的 `now`），使 `expires_at` 与过期边界可复现。**不**用于模拟 MinIO 的服务端时钟。 |
+| 服务 | 版本 | 端点 | 启动方式 |
+|---|---|---|---|
+| MinIO 服务端 | `RELEASE.2025-07-23T15-54-02Z` | `http://127.0.0.1:9000` | 官方 `minio.exe` 直跑（无 docker），数据目录 `D:\minio1899data` |
+| MinIO 客户端 | `mc RELEASE.2026-09-19T15-24-59Z` | — | alias `local1899` |
+| PostgreSQL | `16.4` | `127.0.0.1:55432` | 本机实例，库 `contracts_realenv`，用户 `postgres` |
 
-### 5.2 为什么冻结时间仍然能证明 AC4
+### 5.2 新增的测试套件 `tests/realenv/`（14 例）
 
-AC4 要证明的是「预签名地址超过 5 分钟后失效」。这件事由**服务端**判定，判定依据只有两个量：
-URL 里的 `X-Amz-Date`（签名时刻）与 `X-Amz-Expires`（有效秒数），以及服务端当前时间。
-服务端做的事等价于：
+| 文件 | 用例 | 覆盖 | 需要的外部服务 |
+|---|---|---|---|
+| `tests/realenv/test_ac1_minio.py` | 6 | AC1 四格式 201 + `head_object` 字节数 + 桶私有 + 匿名 GET 403 + manifest | 真 MinIO + PG |
+| `tests/realenv/test_ac4_minio.py` | 3 | AC4 由 MinIO 判定的 4:59 / 5:01 边界 | 真 MinIO + PG |
+| `tests/realenv/test_ac3_postgres.py` | 5 | PG 版本、部分唯一索引定义、409 同 id、软删重传、十并发 | 真 MinIO + PG |
+
+三个环境变量（`CONTRACT_TEST_S3_ENDPOINT` / `CONTRACT_TEST_S3_SECRET_KEY` / `CONTRACT_TEST_DATABASE_URL`）缺任意一个时，
+`requires_real_env` 让这 14 例整体 skip，默认套件仍是 44 passed（见 §6.1）。
+
+### 5.3 AC1：在真 MinIO 里确实看到了那四个对象
+
+证据 `evidence/ac1-minio-upload.txt`（`python -m pytest -v -s tests/realenv/test_ac1_minio.py`，**6 passed**，退出码 0）：
 
 ```
-valid  <=>  signature matches  AND  now < X-Amz-Date + X-Amz-Expires
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[pdf] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[docx] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[jpg] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[png] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_bucket_is_not_public_read_on_real_minio PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_manifest_covers_all_four_formats PASSED
+======================== 6 passed, 1 warning in 2.25s =========================
 ```
 
-本单把这个判定**原样实现**在 `app/storage/signing.py` 里，并做了三件事让它成为有效证明：
+每个格式的断言（`tests/realenv/test_ac1_minio.py`）：
 
-1. **签名必须是真的。** `app/storage/signing.py:113-154` 用与服务端相同的 SigV4 规范
-   （canonical request → string to sign → signing key → HMAC）**逐字节复算**签名，
-   测试断言 `compute_signature(info, SECRET) == info.signature`，
-   并断言换一把错误密钥时判定为否（`verify_presigned_url(url, "the-wrong-secret")[0] is False`）。
-   这说明被判定的那把 URL，签名确实是该密钥、该对象 key、该时刻签出来的。
+```python
+assert response.status_code == 201, response.text          # 四种格式都是 201
+new_keys = set(adapter.list_keys()) - before                 # 桶内新增对象恰 1 个
+assert len(new_keys) == 1, new_keys
+assert key.endswith("." + ext), key                          # 扩展名与格式一致
+assert adapter.object_exists(key)                            # 对象在真 MinIO 里存在
+head = adapter.head_object(key)
+assert head["ContentLength"] == len(payload), (head["ContentLength"], len(payload))
+```
 
-2. **过期窗口必须按服务端规则算。** `app/storage/signing.py:43-44` 由 `X-Amz-Date + X-Amz-Expires`
-   得出过期时刻，`app/storage/signing.py:180-182` 用 `now >= expires_at` 判定失效（过期瞬间即失效，
-   与 AWS 文档一致）。断言同时覆盖 **+299 秒仍有效**与**+301 秒已失效**，
-   证明窗口边界正好落在 300 秒，而不是某个宽松区间。
+四条 `mc ls --recursive` 直接列出的对象（`evidence/ac1-minio-mc-ls.txt`，桶内**恰好 4 个**）：
 
-3. **注入的过期秒数确实是参数而不是写死的常量。** `app/storage/s3_adapter.py:294-315` 的
-   `expires_in` 是函数参数（默认 300），测试用 `expires_in=60` 生成另一把 URL 并断言
-   `X-Amz-Expires == "60"`——如果 300 被硬编码，这个断言会失败。
+```
+[2026-11-25 13:11:13 CST]    65B STANDARD contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-2dee-4d66-9906-45056c6d16f0.pdf
+[2026-11-25 13:11:13 CST]    36B STANDARD contracts/org-realenv-0001-2b2bb446a5/2026/11/39467f86-553d-46d3-9a74-a27c2c3bd2dd.jpg
+[2026-11-25 13:11:14 CST]    44B STANDARD contracts/org-realenv-0001-5e8bd1be29/2026/11/c5a95d44-c93f-4723-bcaa-0f53eee4660c.png
+[2026-11-25 13:11:13 CST]   584B STANDARD contracts/org-realenv-0001-fc475d4278/2026/11/f9078b69-230a-4952-a000-f8d1d56ef96d.docx
+```
 
-换句话说：**冻结时间替换的是「服务端当前时间」这一个输入，而不是替换判定逻辑**。
-判定逻辑是本单自己按服务端规范实现并被签名一致性断言约束的。
-在有真 MinIO 的环境里，同样的 URL 由 MinIO 用它自己的时钟执行同一条规则。
+`head_object` 回来的 `ContentLength` 与源文件字节数逐个相等（`evidence/ac1-minio-head.txt`）：
 
-### 5.3 在有 docker 的环境如何用真 MinIO 复核
+```
+{"object_key": "contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-...pdf",  "ContentLength": 65,  "ContentType": "application/pdf"}
+{"object_key": "contracts/org-realenv-0001-2b2bb446a5/2026/11/39467f86-...jpg",  "ContentLength": 36,  "ContentType": "image/jpeg"}
+{"object_key": "contracts/org-realenv-0001-5e8bd1be29/2026/11/c5a95d44-...png",  "ContentLength": 44,  "ContentType": "image/png"}
+{"object_key": "contracts/org-realenv-0001-fc475d4278/2026/11/f9078b69-...docx", "ContentLength": 584, "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+```
+
+桶私有性在真 MinIO 上的复核（`evidence/ac1-bucket-private.txt`）：
+
+```
+is_public_read() = False
+bucket ACL grants = [ {"grantee": null, "permission": "FULL_CONTROL"} ]     ← 没有 AllUsers 授权
+bucket policy = { Statement: [ { Sid: DenyPublicObjectAcl, Effect: Deny,
+                                 Action: [s3:PutObjectAcl], Principal: {AWS:[*]}} ] }
+anonymous GET http://127.0.0.1:9000/contract-realenv-ac1/...  -> HTTP 403, <Code>AccessDenied</Code>
+```
+
+### 5.4 AC4：4:59 → 200 / 5:01 → 403，判决由 MinIO 作出
+
+这是本版最关键的一处补强。上一版只能证明「我们自己的校验器认为过期了」，买方要的是**服务端**的判决。
+
+证据 `evidence/ac4-presign-expiry.txt`（**3 passed**，退出码 0）：
+
+```
+tests/realenv/test_ac4_minio.py::test_ac4_url_still_valid_at_4m59s_on_real_minio
+  age 299s = 4:59 -> HTTP 200, 65 bytes, expires_at=2026-11-25T05:11:19+00:00 PASSED
+tests/realenv/test_ac4_minio.py::test_ac4_url_expired_at_5m01s_on_real_minio
+  age 301s = 5:01 -> HTTP 403, code=AccessDenied, expires_at=2026-11-25T05:11:18+00:00 PASSED
+tests/realenv/test_ac4_minio.py::test_ac4_expiry_is_a_server_side_verdict_not_our_check PASSED
+```
+
+做法与为什么这样仍算「5 分钟」：
+
+1. 应用按正常流程签发下载 URL（`presign_ttl_seconds=300`），URL 里带 `X-Amz-Date` 与 `X-Amz-Expires=300`。
+2. 签发瞬间用 freezegun 把**签发侧**时钟冻结在 `now - age`，于是 URL 的 `X-Amz-Date` 正好是 `age` 秒之前；
+   三个断言把这个事实钉死：`parse_presigned_url(url).expires_in == 300`、`parse_presigned_url(url).amz_date == signed_at`、
+   `int((now - amz_date).total_seconds()) == 299 / 301`。
+
+   取样点故意落在整秒之后 **0.4 秒**，而不是压在边界上：这样「4:59」这一侧的 URL 在 MinIO 眼里是 299.4 秒，
+   距 300 秒的判决边界还有 0.6 秒余量 —— 否则采样时刻的一点抖动就会让 403 变成「正确的判决、错误的说法」。
+   `_presign_aged()` 里那 0.4 秒 sleep 就是为此，连跑 5 次结果稳定。
+3. 然后**用真实时钟**去 GET 这个 URL。判定的只有 MinIO：它比对 `X-Amz-Date + X-Amz-Expires` 与**它自己的墙钟**。
+   本仓库在这条路径上没有参与判定 —— 403 是 MinIO 回的，`<Code>AccessDenied</Code>` 是 MinIO 写在 body 里的。
+
+等价地：这一步替换的只是「URL 有多老」这个取样点，**判决逻辑与时钟都属于 MinIO**。
+
+### 5.5 AC3：真 PostgreSQL 16 上的 `alembic upgrade head` 与十并发
+
+`evidence/ac3-pg-alembic.txt`：
+
+```
+$ python -m alembic current        -> 0001_init (head)      exit code: 0
+$ python -m alembic upgrade head   -> (无变更, 已在 head)    exit code: 0
+$ python -m alembic current        -> 0001_init (head)      exit code: 0
+Context impl PostgresqlImpl. / Will assume transactional DDL.
+```
+
+迁移在该库实际建出的索引（`evidence/ac3-pg-index.txt`，读自 `pg_indexes`）：
+
+```sql
+CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active
+  ON public.doc_contract USING btree (org_id, sha256) WHERE (deleted_at IS NULL)
+```
+
+`evidence/ac3-pg-tests.txt`（**5 passed**，退出码 0）：
+
+```
+test_postgres_16_is_the_backend            backend: PostgreSQL 16.4
+test_partial_unique_index_exists_with_the_where_clause
+  index: CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active ON public.doc_contract
+         USING btree (org_id, sha256) WHERE (deleted_at IS NULL)
+test_ac3_duplicate_upload_returns_409_with_the_same_contract_id_on_postgres  PASSED
+test_ac3_reupload_after_soft_delete_on_postgres                              PASSED
+test_ten_concurrent_uploads_of_the_same_file_yield_one_201_on_postgres
+  concurrent codes: [201, 409, 409, 409, 409, 409, 409, 409, 409, 409] -> one 201, nine 409 PASSED
+```
+
+十并发那条的断言（`tests/realenv/test_ac3_postgres.py`）：
+
+```python
+codes = [code for code, _ in results]
+assert codes.count(201) == 1, codes
+assert codes.count(409) == 9, codes
+winners = {body["contract_id"] for code, body in results if code == 201}
+losers  = {body["contract_id"] for code, body in results if code == 409}
+assert len(winners) == 1, winners
+assert losers == winners, (losers, winners)      # 九个 409 带的都是同一个 id
+assert len(active) == 1                          # 库里只有一行
+```
+
+这一条是 SQLite 无法替代的：部分唯一索引在**并发插入**下的行为、以及落败方拿到的是 `IntegrityError` 而不是
+`OperationalError`，两个数据库不一样。真 PG 上跑通才算证据。
+
+### 5.6 为什么真实 MinIO 逼出了一处适配器修正
+
+真 MinIO 在「把桶设私有」上与 AWS S3 有三处不同，原来的 `_enforce_private` 在真机上会直接抛错：
+
+| 动作 | AWS S3 / moto | 真 MinIO | 修正后做法 |
+|---|---|---|---|
+| `put_bucket_acl(ACL=private)` | 生效 | 200 但空操作 | 照发；`NotImplemented`/`501` 视为可接受 |
+| `put_public_access_block` | 生效 | `MalformedXML` | 容忍 `MalformedXML`，best effort |
+| policy 里的 `s3:x-amz-acl` 条件键 | 支持 | `MalformedPolicy - invalid condition key` | 先带条件，失败退到不带条件的 MinIO 形式 |
+| `s3:PutObjectAcl` 只列对象 resource | 接受 | `unsupported Resource found` | MinIO 形式同时列对象与桶两个 resource |
+
+`app/storage/s3_adapter.py: _enforce_private` 与新增的 `_private_policy(*, conditioned: bool)` 就是这么改的。
+两种 policy 形式**都是 Deny-only**，不会授予任何匿名权限；改完默认套件仍 44 passed（见 §6.1）。
+
+### 5.7 怎样一键复现这一节
 
 ```bash
-docker compose -f deploy/docker-compose.minio.yml up -d
-docker compose -f deploy/docker-compose.minio.yml logs -f minio-init
+# 1) 起真 MinIO（无 docker 时用二进制）
+minio server /data --address 127.0.0.1:9000
+mc alias set local1899 http://127.0.0.1:9000 minioadmin minioadmin
 
-export CONTRACT_OBJECT_STORAGE_ENDPOINT=http://127.0.0.1:9000
-export CONTRACT_OBJECT_STORAGE_BUCKET=contract-bucket
-export CONTRACT_OBJECT_STORAGE_SECRET_KEY=minioadmin
-export CONTRACT_OBJECT_STORAGE_ACCESS_KEY_ID=minioadmin
+# 2) 指向真 PostgreSQL 16 的空库
+createdb -h 127.0.0.1 -p 55432 -U postgres contracts_realenv
 
-python -m pytest -q          # 同一批用例
+# 3) 三个变量 + 一个桶名，跑真实环境套件并生成证据
+export CONTRACT_TEST_S3_ENDPOINT=http://127.0.0.1:9000
+export CONTRACT_TEST_S3_SECRET_KEY=minioadmin
+export CONTRACT_TEST_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+python -m pytest tests/realenv -q        # 14 passed
+python scripts/realenv_evidence.py       # 重新生成 evidence/*.txt
 ```
 
-`deploy/docker-compose.minio.yml` 里的 `minio-init` job 做两件幂等的事：
-`mc mb --ignore-existing local/$CONTRACT_BUCKET` 与 `mc anonymous set none local/$CONTRACT_BUCKET`。
-适配器侧 (`app/storage/s3_adapter.py:76-146`) 还会再执行一次
-`put_bucket_acl(ACL=private)` + `put_public_access_block` + 拒绝 public ACL 的 bucket policy。
+`scripts/realenv_evidence.py` 只做三件事：跑三组 pytest 并把 stdout 原样落盘、用 `mc ls` / `head_object` / `get_bucket_acl`
+把服务端看到的东西打印出来、跑 `alembic current` / `upgrade head` 并把输出落盘。没有任何一个数值是脚本自己编的。
 
 ---
 
 ## 6. 逐文件用例数与耗时
+
+### 6.1 默认套件（moto + SQLite）
 
 干净 clone（`C:\Users\Public\_v1899`）上逐文件实测，全部退出码 0：
 
@@ -378,6 +518,22 @@ python -m pytest -q          # 同一批用例
 | `tests/test_filename_handling.py` | 3 | `../../x.pdf` / 非 ASCII 文件名 / 无扩展名 415 |
 | **合计** | **44** | `python -m pytest -q` → `44 passed`，退出码 0 |
 
+### 6.2 真实环境套件（真 MinIO + PostgreSQL 16.4）
+
+| 测试文件 | 用例数 | 覆盖 | 证据 |
+|---|---|---|---|
+| `tests/realenv/test_ac1_minio.py` | 6 | 四格式 201 + `head_object` 字节数 + 桶私有 + 匿名 GET 403 | `evidence/ac1-minio-upload.txt`、`evidence/ac1-bucket-private.txt`、`evidence/ac1-minio-head.txt`、`evidence/ac1-minio-mc-ls.txt` |
+| `tests/realenv/test_ac4_minio.py` | 3 | MinIO 判定的 4:59 → 200 / 5:01 → 403 | `evidence/ac4-presign-expiry.txt` |
+| `tests/realenv/test_ac3_postgres.py` | 5 | PG 16.4、部分唯一索引、409 同 id、软删重传、十并发 | `evidence/ac3-pg-tests.txt`、`evidence/ac3-pg-index.txt`、`evidence/ac3-pg-alembic.txt` |
+| **合计** | **14** | `python -m pytest tests/realenv -q` → `14 passed`，退出码 0 | 见上 |
+
+无 `CONTRACT_TEST_*` 变量时这 14 例整体 skip，默认套件仍是 44 passed：
+
+```
+python -m pytest -q                    -> 44 passed, 14 skipped   exit code 0
+python -m pytest tests/realenv -q      -> 14 passed                exit code 0（需真 MinIO + PG）
+```
+
 ---
 
 ## 7. 一条命令跑完四条 AC
@@ -393,12 +549,12 @@ python scripts/verify_ac.py
 
 ```
 === AC1: 上传 4 种允许格式均返回 201，并能在 MinIO 中看到对应对象 ===
-AC1 PASS  (5 node(s), 6.72s)
+AC1 PASS  (5 node(s), 7.21s)
 === AC2: 上传 21 MB 文件返回 413，上传 .exe 返回 415 ===
-AC2 PASS  (8 node(s), 11.98s)
+AC2 PASS  (8 node(s), 12.71s)
 === AC3: 同一文件重复上传返回 409，body 中 contract_id 与首次一致 ===
-AC3 PASS  (3 node(s), 4.74s)
+AC3 PASS  (3 node(s), 5.59s)
 === AC4: 预签名地址超过 5 分钟后失效（冻结时间的单元测试证明） ===
-AC4 PASS  (5 node(s), 6.20s)
+AC4 PASS  (5 node(s), 6.80s)
 all four acceptance criteria PASS
 ```

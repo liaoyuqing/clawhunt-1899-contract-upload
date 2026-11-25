@@ -1,4 +1,4 @@
-============================= test session starts =============================
+﻿============================= test session starts =============================
 collecting ... collected 5 items
 
 tests/test_ac1_formats.py::test_ac1_each_allowed_format_returns_201[pdf] PASSED [ 20%]
@@ -13,7 +13,7 @@ D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 5 passed, 1 warning in 4.43s =========================
+======================== 5 passed, 1 warning in 4.78s =========================
 ============================= test session starts =============================
 collecting ... collected 8 items
 
@@ -32,7 +32,7 @@ D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 8 passed, 1 warning in 9.50s =========================
+======================== 8 passed, 1 warning in 10.33s ========================
 ============================= test session starts =============================
 collecting ... collected 3 items
 
@@ -46,7 +46,7 @@ D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 3 passed, 1 warning in 2.38s =========================
+======================== 3 passed, 1 warning in 3.20s =========================
 ============================= test session starts =============================
 collecting ... collected 5 items
 
@@ -62,17 +62,17 @@ D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 5 passed, 1 warning in 3.71s =========================
+======================== 5 passed, 1 warning in 4.48s =========================
 === AC1: 上传 4 种允许格式均返回 201，并能在 MinIO 中看到对应对象 ===
-AC1 PASS  (5 node(s), 6.72s)
+AC1 PASS  (5 node(s), 7.21s)
 
 === AC2: 上传 21 MB 文件返回 413，上传 .exe 返回 415 ===
-AC2 PASS  (8 node(s), 11.98s)
+AC2 PASS  (8 node(s), 12.71s)
 
 === AC3: 同一文件重复上传返回 409，body 中 contract_id 与首次一致 ===
-AC3 PASS  (3 node(s), 4.74s)
+AC3 PASS  (3 node(s), 5.59s)
 
 === AC4: 预签名地址超过 5 分钟后失效（冻结时间的单元测试证明） ===
-AC4 PASS  (5 node(s), 6.20s)
+AC4 PASS  (5 node(s), 6.80s)
 
 all four acceptance criteria PASS

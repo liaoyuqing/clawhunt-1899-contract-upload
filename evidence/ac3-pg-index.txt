@@ -1,0 +1,40 @@
+# AC3 on real PostgreSQL 16 - index and schema
+# generated 2026-11-25T05:11:28.268814+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+select version() -> PostgreSQL 16.4, compiled by Visual C++ build 1940, 64-bit
+current_setting(server_version) -> 16.4
+
+pg_indexes WHERE tablename = 'doc_contract':
+  doc_contract_pkey
+    CREATE UNIQUE INDEX doc_contract_pkey ON public.doc_contract USING btree (id)
+  ix_doc_contract_org_id_id
+    CREATE INDEX ix_doc_contract_org_id_id ON public.doc_contract USING btree (org_id, id)
+  uq_doc_contract_org_sha256_active
+    CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active ON public.doc_contract USING btree (org_id, sha256) WHERE (deleted_at IS NULL)
+
+information_schema.columns for doc_contract:
+  id | character varying | nullable=NO
+  org_id | character varying | nullable=NO
+  site_id | character varying | nullable=YES
+  object_key | character varying | nullable=NO
+  sha256 | character varying | nullable=NO
+  size_bytes | bigint | nullable=NO
+  content_type | character varying | nullable=NO
+  ext | character varying | nullable=NO
+  original_filename | character varying | nullable=YES
+  contract_type_hint | character varying | nullable=YES
+  member_company_id | character varying | nullable=YES
+  status | character varying | nullable=NO
+  dispatch_state | character varying | nullable=NO
+  created_at | timestamp with time zone | nullable=NO
+  created_by | character varying | nullable=YES
+  updated_at | timestamp with time zone | nullable=NO
+  deleted_at | timestamp with time zone | nullable=YES
+
+dedup invariant over the whole table:
+  active rows = 162
+  distinct orgs = 162
+  (org_id, sha256) groups with more than one active row = 0
+  <- 0 means the partial unique index held for every upload this suite made

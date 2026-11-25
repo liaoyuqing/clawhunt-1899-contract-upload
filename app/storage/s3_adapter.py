@@ -90,13 +90,29 @@ class S3StorageAdapter:
         self._enforce_private(created=created)
 
     def _enforce_private(self, created: bool = False) -> None:
-        """Idempotently make the bucket private.
+        """Idempotently make the bucket private (works on AWS S3 and MinIO).
 
         * force the canned ACL back to ``private`` (MinIO ignores it, AWS
-        * does not),
-        * enable the public access block,
-        * install a bucket policy that denies any attempt to publish an
-        * object with a public ACL.
+          does not),
+        * enable the public access block where the server implements it,
+        * install a bucket policy that denies publishing an object with a
+          public ACL.
+
+        The sequence is written so the SAME code runs on AWS S3, on moto and
+        on a real MinIO server, because those three differ in what they
+        accept:
+
+        * AWS understands the ``s3:x-amz-acl`` condition key;
+          MinIO rejects it with ``MalformedPolicy - invalid condition key``.
+        * MinIO does not implement ``PutPublicAccessBlock`` at all and
+          answers ``MalformedXML``.
+        * MinIO accepts ``s3:PutObjectAcl`` only with BOTH the object and
+          the bucket resource in the statement.
+
+        So the policy is tried in two Deny-only forms - the conditioned AWS
+        form first, the plain MinIO form second - and the public access block
+        is best effort.  Both forms are Deny-only, so nothing here can ever
+        grant anonymous access; they can only refuse it.
 
         The policy deliberately does NOT deny ``s3:GetObject``: an
         unauthenticated GET is already rejected by the private ACL, and a
@@ -120,29 +136,78 @@ class S3StorageAdapter:
             )
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "")
-            if code not in {"NoSuchPublicAccessBlockConfiguration", "NotImplemented", "501"}:
+            if code not in {
+                "NoSuchPublicAccessBlockConfiguration",
+                "NotImplemented",
+                "501",
+                "MalformedXML",
+            }:
                 raise StorageError(f"cannot block public access on {self.bucket}: {exc}") from exc
-        policy = {
+        last_error: Exception | None = None
+        for policy in (
+            self._private_policy(conditioned=True),
+            self._private_policy(conditioned=False),
+        ):
+            try:
+                self.client.put_bucket_policy(
+                    Bucket=self.bucket,
+                    Policy=json.dumps(policy),
+                )
+                return
+            except ClientError as exc:
+                last_error = exc
+                code = exc.response.get("Error", {}).get("Code", "")
+                if code not in {
+                    "MalformedPolicy",
+                    "InvalidPolicyDocument",
+                    "MalformedXML",
+                }:
+                    raise StorageError(
+                        f"cannot install the private bucket policy on {self.bucket}: {exc}"
+                    ) from exc
+        raise StorageError(
+            f"no supported private bucket policy form for {self.bucket}: {last_error}"
+        )
+
+    def _private_policy(self, *, conditioned: bool) -> dict:
+        """Return the Deny-only bucket policy that forbids a public object ACL.
+
+        ``conditioned=True`` is the AWS form (only public-read /
+        public-read-write ACLs are denied); ``conditioned=False`` is the
+        MinIO form (the whole ``s3:PutObjectAcl`` action is denied, with the
+        bucket resource added because MinIO requires it).
+        """
+        object_arn = f"arn:aws:s3:::{self.bucket}/*"
+        if conditioned:
+            return {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "DenyPublicReadACL",
+                        "Effect": "Deny",
+                        "Principal": "*",
+                        "Action": "s3:PutObjectAcl",
+                        "Resource": object_arn,
+                        "Condition": {
+                            "StringEquals": {
+                                "s3:x-amz-acl": ["public-read", "public-read-write"],
+                            },
+                        },
+                    },
+                ],
+            }
+        return {
             "Version": "2012-10-17",
             "Statement": [
                 {
-                    "Sid": "DenyPublicReadACL",
+                    "Sid": "DenyPublicObjectAcl",
                     "Effect": "Deny",
                     "Principal": "*",
-                    "Action": "s3:PutObjectAcl",
-                    "Resource": f"arn:aws:s3:::{self.bucket}/*",
-                    "Condition": {
-                        "StringEquals": {
-                            "s3:x-amz-acl": ["public-read", "public-read-write"],
-                        },
-                    },
+                    "Action": ["s3:PutObjectAcl"],
+                    "Resource": [object_arn, f"arn:aws:s3:::{self.bucket}"],
                 },
             ],
         }
-        self.client.put_bucket_policy(
-            Bucket=self.bucket,
-            Policy=json.dumps(policy),
-        )
 
     def is_public_read(self) -> bool:
         """Return True when the bucket ACL grants READ to AllUsers."""

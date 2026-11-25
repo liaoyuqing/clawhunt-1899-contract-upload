@@ -1,0 +1,11 @@
+# AC1 on real MinIO - head_object for every object in the bucket
+# generated 2026-11-25T05:11:25.873301+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+objects in bucket: 4
+
+{"object_key": "contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-2dee-4d66-9906-45056c6d16f0.pdf", "ContentLength": 65, "ContentType": "application/pdf", "ETag": "\"945fc2661f87a456e250f085b892e933-1\"", "LastModified": "2026-11-25 05:11:13+00:00"}
+{"object_key": "contracts/org-realenv-0001-2b2bb446a5/2026/11/39467f86-553d-46d3-9a74-a27c2c3bd2dd.jpg", "ContentLength": 36, "ContentType": "image/jpeg", "ETag": "\"f02be69c54ec9d7bd570cf26c639f650-1\"", "LastModified": "2026-11-25 05:11:13+00:00"}
+{"object_key": "contracts/org-realenv-0001-5e8bd1be29/2026/11/c5a95d44-c93f-4723-bcaa-0f53eee4660c.png", "ContentLength": 44, "ContentType": "image/png", "ETag": "\"dec5379709c35f38018225b017dd76ab-1\"", "LastModified": "2026-11-25 05:11:14+00:00"}
+{"object_key": "contracts/org-realenv-0001-fc475d4278/2026/11/f9078b69-230a-4952-a000-f8d1d56ef96d.docx", "ContentLength": 584, "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "ETag": "\"f303440f46e4f328223ffc7be04ea68f-1\"", "LastModified": "2026-11-25 05:11:13+00:00"}

@@ -75,8 +75,17 @@ CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active
 ```
 
 PostgreSQL 16：把 `CONTRACT_DATABASE_URL` 换成 `postgresql+psycopg://user:pass@host/db` 即可。
-本单不涉及 pgvector，也不使用 PostgreSQL 专有类型；唯一索引是标准 SQL 的部分索引，
-SQLite 与 PostgreSQL 语义一致。**本机没有 PostgreSQL**，交付实测用 SQLite 完成。
+本单不涉及 pgvector，也不使用 PostgreSQL 专有类型；唯一索引是标准 SQL 的部分索引。
+
+**本版已在真实 PostgreSQL 16.4 上跑过**：`alembic upgrade head` 在该库建出
+
+```sql
+CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active
+  ON public.doc_contract USING btree (org_id, sha256) WHERE (deleted_at IS NULL)
+```
+
+并跑通「重复上传 409 同 id」「软删后重传拿新 id」「十并发同文件 ⇒ 1×201 + 9×409」三组用例，
+原始输出见 `evidence/ac3-pg-alembic.txt`、`evidence/ac3-pg-tests.txt`、`evidence/ac3-pg-index.txt`。
 
 ### 1.5 启动
 
@@ -97,18 +106,69 @@ python scripts/check_openapi.py      # OpenAPI 断言，退出码 0/1
 
 ---
 
-## 2. 运行环境边界（重要，请先读）
+## 2. 两套测试与运行环境（重要，请先读）
 
-**交付机器上没有 docker、没有 MinIO 服务端、没有 PostgreSQL。** 因此：
+本仓库有**两套**测试，跑在不同的环境上，两者都随仓库交付：
 
-| 承诺 | 本机实际做法 |
+| 套件 | 目录 | 跑在哪 | 是否需要外部服务 |
+|---|---|---|---|
+| 默认套件（44 例） | `tests/` | moto `ThreadedMotoServer` + SQLite | 否，`python -m pytest -q` 直接绿 |
+| 真实环境套件（14 例） | `tests/realenv/` | **真 MinIO 服务端 + 真 PostgreSQL 16** | 是，三个环境变量缺一即整体 skip |
+
+默认套件保证任何一台机器上 `python -m pytest -q` 都是 `44 passed`；真实环境套件是 AC1「在 MinIO 中看到对应对象」
+与 AC4「超过 5 分钟失效」的**服务端侧**证明，交付机器上已经真跑过，原始输出在 `evidence/`：
+
+| 证据文件 | 内容 |
 |---|---|
-| 「测试连真 MinIO」 | 本机**不可能**起真 MinIO。改为用 **moto 的 `ThreadedMotoServer`**——一个真正的 HTTP 服务器，boto3 通过**真实 HTTP 协议栈**（SigV4 签名、multipart 上传、预签名 URL）访问它，不是进程内拦截的 `mock_aws` 装饰器。 |
-| `deploy/docker-compose.minio.yml` | **作为交付物提供，本机从未运行过**（无 docker）。文件头已写明这一点。文件内含 MinIO 服务 + 幂等初始化 job（建桶 + `mc anonymous set none` 私有策略），在有 docker 的主机上 `docker compose -f deploy/docker-compose.minio.yml up -d` 即可起真 MinIO。 |
-| 数据库 | SQLite（SQLAlchemy 2 + Alembic）。PostgreSQL 16 的连接串已支持，但本机无 PostgreSQL，未实测。 |
-| AC4 预签名过期 | moto **不校验预签名过期**（实测：`ExpiresIn=1` 的 URL 放 2.5 秒后 GET 仍返回 200）。因此 AC4 由 `app/storage/signing.py` 中**自研的 SigV4 校验器**按服务端同规则判定（复算签名 + 过期窗口），并直接断言 URL 里的 `X-Amz-Date` / `X-Amz-Expires`。校验器已验证与 boto3 生成的签名**逐字节一致**。服务端时钟篡改在本地无法模拟，这一点如实写明。 |
-| freezegun 的作用 | 冻结**应用侧**时钟，使 `expires_at`、key 的 yyyy/mm 与过期边界判定可复现；**不**用于模拟 MinIO 服务端时钟。 |
-| moto 的作用 | 提供 S3 协议实现：桶、对象、multipart、预签名、私有 ACL / 匿名 GET 403。 |
+| `evidence/ac1-minio-upload.txt` | 真 MinIO 上四格式各 201，`head_object` 字节数与源文件一致（6 passed） |
+| `evidence/ac1-minio-head.txt` | 桶内四个对象的 `ContentLength` / `ContentType` / `ETag` / `LastModified` |
+| `evidence/ac1-minio-mc-ls.txt` | `mc ls --recursive` 直接列出这四个对象（桶内恰好 4 个） |
+| `evidence/ac1-bucket-private.txt` | 桶 ACL 无 AllUsers 授权、policy 为 Deny-only、匿名 GET 返回 403 |
+| `evidence/ac4-presign-expiry.txt` | 同一桶内，age 299s ⇒ HTTP 200（65 字节）、age 301s ⇒ HTTP 403 `AccessDenied`（3 passed） |
+| `evidence/ac3-pg-tests.txt` | PG 16.4 上重复上传 409 同 id、软删后重传、十并发 1×201+9×409（5 passed） |
+| `evidence/ac3-pg-alembic.txt` | `alembic current` / `upgrade head` / `current`，退出码全 0 |
+| `evidence/ac3-pg-index.txt` | `pg_indexes` 里那条部分唯一索引的实际定义与列类型 |
+
+### 2.1 真实环境套件怎么跑
+
+```bash
+export CONTRACT_TEST_S3_ENDPOINT=http://127.0.0.1:9000
+export CONTRACT_TEST_S3_SECRET_KEY=minioadmin
+export CONTRACT_TEST_S3_ACCESS_KEY_ID=minioadmin
+export CONTRACT_TEST_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+python -m pytest tests/realenv -q      # 14 passed
+python scripts/realenv_evidence.py     # 重新生成 evidence/*.txt
+```
+
+三个变量缺任一个时 `tests/realenv` 整体 skip，默认套件的 44 例不受影响。
+
+### 2.2 交付机器上实际跑的是什么
+
+| 项 | 实际情况 |
+|---|---|
+| docker | 没有。MinIO 用官方二进制作业方式直跑（`minio server`），不用容器。 |
+| MinIO 服务端 | **有，且已实跑**：`RELEASE.2025-07-23T15-54-02Z`，端点 `http://127.0.0.1:9000`，客户端 `mc RELEASE.2026-09-19T15-24-59Z`。 |
+| `deploy/docker-compose.minio.yml` | 作为等价的可复现环境提供；本机没有 docker，所以交付机器上是用同一份适配器代码直连二进制 MinIO 验证的。 |
+| 数据库 | 默认套件 SQLite；真实环境套件跑在 **PostgreSQL 16.4**（`127.0.0.1:55432`，库 `contracts_realenv`）。 |
+| moto 的作用 | 让默认套件无需外部服务即可覆盖 S3 协议：桶、对象、multipart、预签名、私有 ACL / 匿名 GET 403。 |
+| moto 的局限 | moto **不校验预签名过期**（实测：`ExpiresIn=1` 的 URL 放 2.5 秒后 GET 仍返回 200）。这正是为什么 AC4 的最终证明放在真 MinIO 上，而不是 moto 上。 |
+| freezegun 的作用 | 冻结**签发侧**时钟，使 `expires_at`、key 的 yyyy/mm 与 299/301 秒两个取样点可复现。真 MinIO 用**它自己的**墙钟判定过期，本仓库不参与判定。 |
+
+### 2.3 私有桶在真 MinIO 上的差异（本版修正）
+
+真 MinIO 与 AWS S3 在「把桶设私有」这件事上有三处不同，`app/storage/s3_adapter.py: _enforce_private` 已按服务器能力自适应，
+三种形态（AWS / moto / MinIO）跑同一段代码：
+
+| 动作 | AWS S3 | 真 MinIO | 适配器做法 |
+|---|---|---|---|
+| `put_bucket_acl(ACL=private)` | 生效 | 返回 200 但为空操作 | 照发，失败码 `NotImplemented`/`501` 视为可接受 |
+| `put_public_access_block` | 生效 | `MalformedXML`（未实现） | 容忍 `MalformedXML`，best effort |
+| bucket policy 的 `s3:x-amz-acl` 条件键 | 支持 | `MalformedPolicy - invalid condition key` | 先试带条件的 AWS 形式，失败再试不带条件的 MinIO 形式 |
+| `s3:PutObjectAcl` 只给对象 resource | 接受 | `unsupported Resource found` | MinIO 形式里同时列出对象与桶两个 resource |
+
+两种 policy 都是 **Deny-only**，不可能授予匿名权限，只可能拒绝；私有性另由 `private` ACL 与匿名 GET 403 复核（见 `evidence/ac1-bucket-private.txt`）。
+策略**刻意不** Deny `s3:GetObject`：匿名 GET 已由私有 ACL 拒绝，而一刀切的 Deny 会连带打掉合法的预签名下载。
 
 ---
 
@@ -283,7 +343,7 @@ app/
     api/contracts.py     # 两个 HTTP 接口
 migrations/              # Alembic（部分唯一索引）
 scripts/check_openapi.py # OpenAPI 断言脚本
-deploy/docker-compose.minio.yml  # MinIO + 私有桶初始化 job（本机未运行）
+deploy/docker-compose.minio.yml  # MinIO + 私有桶初始化 job（等价环境，本机用二进制直跑）
 tests/                   # pytest 用例
 docs/checks/             # 交付证据（pytest.log / openapi.log / env.log ...）
 ```

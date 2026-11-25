@@ -1,0 +1,38 @@
+# AC1 on real MinIO - the bucket is private
+# generated 2026-11-25T05:11:25.863143+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+is_public_read() = False
+
+bucket ACL grants = [
+  {
+    "grantee": null,
+    "permission": "FULL_CONTROL"
+  }
+]
+
+bucket policy = {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyPublicObjectAcl",
+      "Effect": "Deny",
+      "Principal": {
+        "AWS": [
+          "*"
+        ]
+      },
+      "Action": [
+        "s3:PutObjectAcl"
+      ],
+      "Resource": [
+        "arn:aws:s3:::contract-realenv-ac1",
+        "arn:aws:s3:::contract-realenv-ac1/*"
+      ]
+    }
+  ]
+}
+
+anonymous GET http://127.0.0.1:9000/contract-realenv-ac1/contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-2dee-4d66-9906-45056c6d16f0.pdf
+  -> HTTP 403, <Code>AccessDenied</Code>

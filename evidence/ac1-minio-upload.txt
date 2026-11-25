@@ -1,0 +1,70 @@
+# AC1 on real MinIO - four formats 201 + head_object ContentLength
+# generated 2026-11-25T05:11:15.497972+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+$ python -m pytest -v -s tests/realenv/test_ac1_minio.py
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\Administrator\.venvs\hf-bgm\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\AI接单\Clawhunt\delivery\1899
+configfile: pyproject.toml
+plugins: anyio-4.15.1, hydra-core-1.3.2, typeguard-4.5.2
+collecting ... collected 6 items
+
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[pdf] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[docx] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[jpg] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_each_allowed_format_returns_201_on_real_minio[png] PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_bucket_is_not_public_read_on_real_minio PASSED
+tests/realenv/test_ac1_minio.py::test_ac1_manifest_covers_all_four_formats PASSED
+
+============================== warnings summary ===============================
+D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
+  D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 6 passed, 1 warning in 2.25s =========================
+
+exit code: 0
+
+# the manifest the four uploads left behind (one row per allowed format)
+[
+  {
+    "format": "pdf",
+    "status_code": 201,
+    "contract_id": "5a0fd658-77b3-4764-8c49-1993b7b87da0",
+    "object_key": "contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-2dee-4d66-9906-45056c6d16f0.pdf",
+    "upload_bytes": 65,
+    "minio_content_length": 65,
+    "bucket": "contract-realenv-ac1"
+  },
+  {
+    "format": "docx",
+    "status_code": 201,
+    "contract_id": "0fed4dcf-7e21-44df-a066-25ed72e93481",
+    "object_key": "contracts/org-realenv-0001-fc475d4278/2026/11/f9078b69-230a-4952-a000-f8d1d56ef96d.docx",
+    "upload_bytes": 584,
+    "minio_content_length": 584,
+    "bucket": "contract-realenv-ac1"
+  },
+  {
+    "format": "jpg",
+    "status_code": 201,
+    "contract_id": "2c7dc19a-bd7e-45df-940d-a8feba611024",
+    "object_key": "contracts/org-realenv-0001-2b2bb446a5/2026/11/39467f86-553d-46d3-9a74-a27c2c3bd2dd.jpg",
+    "upload_bytes": 36,
+    "minio_content_length": 36,
+    "bucket": "contract-realenv-ac1"
+  },
+  {
+    "format": "png",
+    "status_code": 201,
+    "contract_id": "bf4821d3-1874-4f54-bc63-628843ae0b43",
+    "object_key": "contracts/org-realenv-0001-5e8bd1be29/2026/11/c5a95d44-c93f-4723-bcaa-0f53eee4660c.png",
+    "upload_bytes": 44,
+    "minio_content_length": 44,
+    "bucket": "contract-realenv-ac1"
+  }
+]

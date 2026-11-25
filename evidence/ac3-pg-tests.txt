@@ -1,0 +1,32 @@
+# AC3 on real PostgreSQL 16 - dedup, partial index, ten concurrent
+# generated 2026-11-25T05:11:25.830100+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+$ python -m pytest -v -s tests/realenv/test_ac3_postgres.py
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\Administrator\.venvs\hf-bgm\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: E:\AI接单\Clawhunt\delivery\1899
+configfile: pyproject.toml
+plugins: anyio-4.15.1, hydra-core-1.3.2, typeguard-4.5.2
+collecting ... collected 5 items
+
+tests/realenv/test_ac3_postgres.py::test_postgres_16_is_the_backend backend: PostgreSQL 16.4
+PASSED
+tests/realenv/test_ac3_postgres.py::test_partial_unique_index_exists_with_the_where_clause index: CREATE UNIQUE INDEX uq_doc_contract_org_sha256_active ON public.doc_contract USING btree (org_id, sha256) WHERE (deleted_at IS NULL)
+PASSED
+tests/realenv/test_ac3_postgres.py::test_ac3_duplicate_upload_returns_409_with_the_same_contract_id_on_postgres PASSED
+tests/realenv/test_ac3_postgres.py::test_ac3_reupload_after_soft_delete_on_postgres PASSED
+tests/realenv/test_ac3_postgres.py::test_ten_concurrent_uploads_of_the_same_file_yield_one_201_on_postgres concurrent codes: [201, 409, 409, 409, 409, 409, 409, 409, 409, 409] -> one 201, nine 409
+PASSED
+
+============================== warnings summary ===============================
+D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45
+  D:\ai\ComfyUI-aki-v1.7\python\Lib\site-packages\starlette\testclient.py:45: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 5 passed, 1 warning in 1.44s =========================
+
+exit code: 0

@@ -1,0 +1,38 @@
+[
+  {
+    "format": "pdf",
+    "status_code": 201,
+    "contract_id": "5a0fd658-77b3-4764-8c49-1993b7b87da0",
+    "object_key": "contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-2dee-4d66-9906-45056c6d16f0.pdf",
+    "upload_bytes": 65,
+    "minio_content_length": 65,
+    "bucket": "contract-realenv-ac1"
+  },
+  {
+    "format": "docx",
+    "status_code": 201,
+    "contract_id": "0fed4dcf-7e21-44df-a066-25ed72e93481",
+    "object_key": "contracts/org-realenv-0001-fc475d4278/2026/11/f9078b69-230a-4952-a000-f8d1d56ef96d.docx",
+    "upload_bytes": 584,
+    "minio_content_length": 584,
+    "bucket": "contract-realenv-ac1"
+  },
+  {
+    "format": "jpg",
+    "status_code": 201,
+    "contract_id": "2c7dc19a-bd7e-45df-940d-a8feba611024",
+    "object_key": "contracts/org-realenv-0001-2b2bb446a5/2026/11/39467f86-553d-46d3-9a74-a27c2c3bd2dd.jpg",
+    "upload_bytes": 36,
+    "minio_content_length": 36,
+    "bucket": "contract-realenv-ac1"
+  },
+  {
+    "format": "png",
+    "status_code": 201,
+    "contract_id": "bf4821d3-1874-4f54-bc63-628843ae0b43",
+    "object_key": "contracts/org-realenv-0001-5e8bd1be29/2026/11/c5a95d44-c93f-4723-bcaa-0f53eee4660c.png",
+    "upload_bytes": 44,
+    "minio_content_length": 44,
+    "bucket": "contract-realenv-ac1"
+  }
+]

@@ -1,0 +1,12 @@
+# AC1 on real MinIO - mc ls --recursive
+# generated 2026-11-25T05:11:26.284017+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+$ E:\AI接单\Clawhunt\delivery\work\1899\_env\minio\mc.exe ls --recursive local1899/contract-realenv-ac1
+[2026-11-25 13:11:13 CST]    65B STANDARD contracts/org-realenv-0001-090562bcf8/2026/11/d806203b-2dee-4d66-9906-45056c6d16f0.pdf
+[2026-11-25 13:11:13 CST]    36B STANDARD contracts/org-realenv-0001-2b2bb446a5/2026/11/39467f86-553d-46d3-9a74-a27c2c3bd2dd.jpg
+[2026-11-25 13:11:14 CST]    44B STANDARD contracts/org-realenv-0001-5e8bd1be29/2026/11/c5a95d44-c93f-4723-bcaa-0f53eee4660c.png
+[2026-11-25 13:11:13 CST]   584B STANDARD contracts/org-realenv-0001-fc475d4278/2026/11/f9078b69-230a-4952-a000-f8d1d56ef96d.docx
+
+exit code: 0

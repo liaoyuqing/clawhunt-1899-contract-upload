@@ -1,0 +1,21 @@
+# AC3 on real PostgreSQL 16 - alembic upgrade head
+# generated 2026-11-25T05:11:28.267805+00:00
+# endpoint http://127.0.0.1:9000   bucket contract-realenv-ac1
+# database postgresql+psycopg://postgres@127.0.0.1:55432/contracts_realenv
+
+$ python -m alembic current
+0001_init (head)
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+exit code: 0
+
+$ python -m alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+exit code: 0
+
+$ python -m alembic current
+0001_init (head)
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+exit code: 0
